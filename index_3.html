@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>수평 투사 vs 자유 낙하 운동 시뮬레이션</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+    }
+
+    body {
+      background-color: #f4f6f9;
+      color: #1e293b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1180px;
+      background: #ffffff;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 상단 헤더 */
+    .header {
+      background: #1e293b;
+      color: #ffffff;
+      padding: 14px 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-sub {
+      font-size: 0.83rem;
+      color: #cbd5e1;
+    }
+
+    /* 헤더 내부로 이동한 범례 배지 (격자선 밖 배치) */
+    .legend-badge {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 8px;
+      padding: 7px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1.5px solid #ffffff;
+    }
+
+    /* 캔버스 영역 */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      background: #ffffff;
+      border-bottom: 2px solid #cbd5e1;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 480px;
+      cursor: crosshair;
+    }
+
+    /* 우측 상단 낙하 시간 및 실시간 계측 패널 */
+    .telemetry-panel {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(6px);
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      min-width: 235px;
+      z-index: 10;
+    }
+
+    .telemetry-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timer-badge {
+      font-variant-numeric: tabular-nums;
+      background: #f1f5f9;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    .ball-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 8px;
+      padding: 7px 9px;
+      border-radius: 7px;
+      font-size: 0.86rem;
+    }
+
+    .ball-stat:last-child {
+      margin-bottom: 0;
+    }
+
+    .ball-a-stat {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+    }
+
+    .ball-b-stat {
+      background: #fef2f2;
+      border-left: 4px solid #dc2626;
+    }
+
+    .stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+    }
+
+    .stat-a-label { color: #1d4ed8; }
+    .stat-b-label { color: #b91c1c; }
+
+    .land-time {
+      font-variant-numeric: tabular-nums;
+      font-size: 0.95rem;
+      font-weight: 800;
+    }
+
+    .stat-sub {
+      font-size: 0.78rem;
+      color: #475569;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* 하단 컨트롤 패널 */
+    .controls-section {
+      padding: 16px 20px;
+      background: #f8fafc;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr) auto;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .control-box {
+      background: #ffffff;
+      border: 2px solid #16a34a;
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .input-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .input-row label {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #1e293b;
+      white-space: nowrap;
+    }
+
+    .label-a { color: #1d4ed8 !important; }
+    .label-b { color: #b91c1c !important; }
+
+    .number-unit {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    input[type="number"] {
+      width: 68px;
+      padding: 4px 6px;
+      border: 1px solid #cbd5e1;
+      border-radius: 5px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      text-align: right;
+      color: #0f172a;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #16a34a;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15);
+    }
+
+    .unit-text {
+      font-size: 0.78rem;
+      color: #64748b;
+      min-width: 26px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #16a34a;
+      cursor: pointer;
+      height: 5px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 4px;
+      border-top: 1px dashed #e2e8f0;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #1e293b;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #16a34a;
+      cursor: pointer;
+    }
+
+    .preset-btns {
+      display: flex;
+      gap: 4px;
+      margin-top: 2px;
+    }
+
+    .preset-btn {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border: 1px solid #cbd5e1;
+      background: #f1f5f9;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .preset-btn:hover {
+      background: #e2e8f0;
+    }
+
+    /* 발사 & 초기화 버튼 영역 */
+    .action-box {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 8px;
+      min-width: 112px;
+    }
+
+    .btn-launch {
+      flex: 1;
+      background: #16a34a;
+      color: #ffffff;
+      border: 2px solid #15803d;
+      border-radius: 10px;
+      font-size: 1.15rem;
+      font-weight: 800;
+      cursor: pointer;
+      padding: 12px 18px;
+      transition: all 0.15s ease;
+      box-shadow: 0 3px 8px rgba(22, 163, 74, 0.25);
+    }
+
+    .btn-launch:hover {
+      background: #15803d;
+      transform: translateY(-1px);
+    }
+
+    .btn-launch:active {
+      transform: translateY(0);
+    }
+
+    .btn-reset {
+      background: #ffffff;
+      color: #475569;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-reset:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    @media (max-width: 960px) {
+      .controls-section {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .action-box {
+        grid-column: span 2;
+        flex-direction: row;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .controls-section {
+        grid-template-columns: 1fr;
+      }
+      .action-box {
+        grid-column: span 1;
+      }
+      canvas {
+        height: 380px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="header">
+    <div class="header-left">
+      <h1>수평 방향 운동과 수직(연직) 방향 운동의 독립성 실험</h1>
+      <span class="header-sub">두 공의 조건을 바꾸어 발사한 뒤 낙하 시간과 궤적을 비교해 보세요</span>
+    </div>
+
+    <!-- 격자 밖(상단 바)으로 이동한 공 A, 공 B 범례 -->
+    <div class="legend-badge">
+      <span class="legend-item"><i class="dot" style="background:#2563eb;"></i>공 A</span>
+      <span class="legend-item"><i class="dot" style="background:#dc2626;"></i>공 B</span>
+    </div>
+  </div>
+
+  <div class="canvas-wrapper">
+    <!-- 우측 상단 땅에 떨어진 시간 표시 패널 -->
+    <div class="telemetry-panel">
+      <div class="telemetry-title">
+        <span>낙하 시간 측정 결과</span>
+        <span class="timer-badge" id="elapsedDisplay">경과: 0.00 s</span>
+      </div>
+
+      <div class="ball-stat ball-a-stat">
+        <div class="stat-header">
+          <span class="stat-a-label">● 공 A 낙하 시간</span>
+          <span class="land-time stat-a-label" id="timeA">대기 중</span>
+        </div>
+        <div class="stat-sub">
+          <span id="heightAInfo">현재 높이: 50.0 m</span>
+          <span id="distAInfo">이동 거리: 0.0 m</span>
+        </div>
+      </div>
+
+      <div class="ball-stat ball-b-stat">
+        <div class="stat-header">
+          <span class="stat-b-label">● 공 B 낙하 시간</span>
+          <span class="land-time stat-b-label" id="timeB">대기 중</span>
+        </div>
+        <div class="stat-sub">
+          <span id="heightBInfo">현재 높이: 50.0 m</span>
+          <span id="distBInfo">이동 거리: 0.0 m</span>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="simCanvas"></canvas>
+  </div>
+
+  <!-- 하단 조작 패널 -->
+  <div class="controls-section">
+    <!-- 박스 1: 수평 방향 속력 -->
+    <div class="control-box">
+      <div class="input-group">
+        <div class="input-row">
+          <label for="vxA" class="label-a">공 A 수평 속력</label>
+          <div class="number-unit">
+            <input type="number" id="vxA" min="0" max="40" step="1" value="0" />
+            <span class="unit-text">m/s</span>
+          </div>
+        </div>
+        <input type="range" id="vxARange" min="0" max="40" step="1" value="0" />
+      </div>
+
+      <div class="input-group">
+        <div class="input-row">
+          <label for="vxB" class="label-b">공 B 수평 속력</label>
+          <div class="number-unit">
+            <input type="number" id="vxB" min="0" max="40" step="1" value="18" />
+            <span class="unit-text">m/s</span>
+          </div>
+        </div>
+        <input type="range" id="vxBRange" min="0" max="40" step="1" value="18" />
+      </div>
+    </div>
+
+    <!-- 박스 2: 공 질량 -->
+    <div class="control-box">
+      <div class="input-group">
+        <div class="input-row">
+          <label for="massA" class="label-a">공 A 질량</label>
+          <div class="number-unit">
+            <input type="number" id="massA" min="0.5" max="20" step="0.5" value="2" />
+            <span class="unit-text">kg</span>
+          </div>
+        </div>
+        <input type="range" id="massARange" min="0.5" max="20" step="0.5" value="2" />
+      </div>
+
+      <div class="input-group">
+        <div class="input-row">
+          <label for="massB" class="label-b">공 B 질량</label>
+          <div class="number-unit">
+            <input type="number" id="massB" min="0.5" max="20" step="0.5" value="2" />
+            <span class="unit-text">kg</span>
+          </div>
+        </div>
+        <input type="range" id="massBRange" min="0.5" max="20" step="0.5" value="2" />
+      </div>
+    </div>
+
+    <!-- 박스 3: 공 높이 -->
+    <div class="control-box">
+      <div class="input-group">
+        <div class="input-row">
+          <label for="heightA" class="label-a">공 A 초기 높이</label>
+          <div class="number-unit">
+            <input type="number" id="heightA" min="10" max="100" step="5" value="50" />
+            <span class="unit-text">m</span>
+          </div>
+        </div>
+        <input type="range" id="heightARange" min="10" max="100" step="5" value="50" />
+      </div>
+
+      <div class="input-group">
+        <div class="input-row">
+          <label for="heightB" class="label-b">공 B 초기 높이</label>
+          <div class="number-unit">
+            <input type="number" id="heightB" min="10" max="100" step="5" value="50" />
+            <span class="unit-text">m</span>
+          </div>
+        </div>
+        <input type="range" id="heightBRange" min="10" max="100" step="5" value="50" />
+      </div>
+    </div>
+
+    <!-- 박스 4: 중력 & 공기 저항 -->
+    <div class="control-box">
+      <div class="input-group">
+        <div class="input-row">
+          <label for="gravity">중력 가속도</label>
+          <div class="number-unit">
+            <input type="number" id="gravity" min="1" max="25" step="0.1" value="9.8" />
+            <span class="unit-text">m/s²</span>
+          </div>
+        </div>
+        <div class="preset-btns">
+          <button type="button" class="preset-btn" data-g="9.8">지구(9.8)</button>
+          <button type="button" class="preset-btn" data-g="1.6">달(1.6)</button>
+          <button type="button" class="preset-btn" data-g="3.7">화성(3.7)</button>
+        </div>
+      </div>
+
+      <div class="checkbox-row">
+        <label class="checkbox-label" for="airDrag">
+          <input type="checkbox" id="airDrag" />
+          <span>공기 저항 적용</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 발사 및 초기화 버튼 -->
+    <div class="action-box">
+      <button type="button" class="btn-launch" id="launchBtn">발사</button>
+      <button type="button" class="btn-reset" id="resetBtn">초기화</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const canvas = document.getElementById('simCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // 입력 요소 바인딩 함수
+  function bindPair(numId, rangeId, onChange) {
+    const numEl = document.getElementById(numId);
+    const rangeEl = document.getElementById(rangeId);
+
+    numEl.addEventListener('input', () => {
+      let val = parseFloat(numEl.value);
+      if (isNaN(val)) return;
+      rangeEl.value = val;
+      onChange();
+    });
+
+    rangeEl.addEventListener('input', () => {
+      numEl.value = rangeEl.value;
+      onChange();
+    });
+
+    return () => parseFloat(numEl.value) || 0;
+  }
+
+  const getVxA = bindPair('vxA', 'vxARange', () => { if (!isRunning) resetSimulation(false); });
+  const getVxB = bindPair('vxB', 'vxBRange', () => { if (!isRunning) resetSimulation(false); });
+  const getMassA = bindPair('massA', 'massARange', () => { if (!isRunning) resetSimulation(false); });
+  const getMassB = bindPair('massB', 'massBRange', () => { if (!isRunning) resetSimulation(false); });
+  const getHeightA = bindPair('heightA', 'heightARange', () => { if (!isRunning) resetSimulation(false); });
+  const getHeightB = bindPair('heightB', 'heightBRange', () => { if (!isRunning) resetSimulation(false); });
+
+  const gravityInput = document.getElementById('gravity');
+  const airDragCheckbox = document.getElementById('airDrag');
+  const launchBtn = document.getElementById('launchBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  // 결과 표시 요소
+  const elapsedDisplay = document.getElementById('elapsedDisplay');
+  const timeADisplay = document.getElementById('timeA');
+  const timeBDisplay = document.getElementById('timeB');
+  const heightAInfo = document.getElementById('heightAInfo');
+  const distAInfo = document.getElementById('distAInfo');
+  const heightBInfo = document.getElementById('heightBInfo');
+  const distBInfo = document.getElementById('distBInfo');
+
+  // 중력 프리셋 버튼
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      gravityInput.value = btn.dataset.g;
+      if (!isRunning) resetSimulation(false);
+    });
+  });
+
+  // 시뮬레이션 상태 변수
+  let isRunning = false;
+  let isPaused = false;
+  let simTime = 0;
+  let lastTimestamp = null;
+  let animFrameId = null;
+
+  let ballA = {};
+  let ballB = {};
+
+  // 고해상도 캔버스 크기 조정
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+
+  function createBallState(vx, mass, h0, color) {
+    return {
+      x: 0,
+      y: h0,
+      vx: vx,
+      vy: 0,
+      mass: mass,
+      h0: h0,
+      color: color,
+      landed: false,
+      landTime: null,
+      trail: [{ x: 0, y: h0 }],
+      strobes: [{ x: 0, y: h0, t: 0 }],
+      nextStrobeTime: 0.2
+    };
+  }
+
+  function resetSimulation(clearResults = true) {
+    if (animFrameId) {
+      cancelAnimationFrame(animFrameId);
+      animFrameId = null;
+    }
+    isRunning = false;
+    isPaused = false;
+    simTime = 0;
+    lastTimestamp = null;
+    launchBtn.textContent = '발사';
+
+    const vxA = Math.max(0, getVxA());
+    const vxB = Math.max(0, getVxB());
+    const mA = Math.max(0.1, getMassA());
+    const mB = Math.max(0.1, getMassB());
+    const hA = Math.max(1, getHeightA());
+    const hB = Math.max(1, getHeightB());
+
+    ballA = createBallState(vxA, mA, hA, '#2563eb');
+    ballB = createBallState(vxB, mB, hB, '#dc2626');
+
+    elapsedDisplay.textContent = '경과: 0.00 s';
+    if (clearResults) {
+      timeADisplay.textContent = '대기 중';
+      timeBDisplay.textContent = '대기 중';
+    }
+    updateTelemetry();
+    draw();
+  }
+
+  function updateTelemetry() {
+    heightAInfo.textContent = `현재 높이: ${Math.max(0, ballA.y).toFixed(1)} m`;
+    distAInfo.textContent = `수평 이동: ${ballA.x.toFixed(1)} m`;
+    heightBInfo.textContent = `현재 높이: ${Math.max(0, ballB.y).toFixed(1)} m`;
+    distBInfo.textContent = `수평 이동: ${ballB.x.toFixed(1)} m`;
+
+    if (ballA.landed && ballA.landTime !== null) {
+      timeADisplay.textContent = `${ballA.landTime.toFixed(2)} 초`;
+    } else if (isRunning) {
+      timeADisplay.textContent = '낙하 중...';
+    }
+
+    if (ballB.landed && ballB.landTime !== null) {
+      timeBDisplay.textContent = `${ballB.landTime.toFixed(2)} 초`;
+    } else if (isRunning) {
+      timeBDisplay.textContent = '낙하 중...';
+    }
+  }
+
+  // 물리 엔진 스텝 (세부 서브스텝 적분으로 정밀도 확보)
+  function stepBall(ball, dt, g, hasDrag) {
+    if (ball.landed) return;
+
+    const prevX = ball.x;
+    const prevY = ball.y;
+
+    // 공기 저항 계수 (2차 항력 모델: F_d = k * v^2, 질량이 클수록 감속이 작아짐)
+    const dragCoeff = 0.025;
+    let ax = 0;
+    let ay = -g;
+
+    if (hasDrag) {
+      const speed = Math.hypot(ball.vx, ball.vy);
+      if (speed > 0) {
+        const fDrag = dragCoeff * speed * speed;
+        ax += -(fDrag * (ball.vx / speed)) / ball.mass;
+        ay += -(fDrag * (ball.vy / speed)) / ball.mass;
+      }
+    }
+
+    ball.vx += ax * dt;
+    ball.vy += ay * dt;
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+
+    // 지면(y = 0) 충돌 보간 처리
+    if (ball.y <= 0) {
+      const ratio = prevY / (prevY - ball.y);
+      const exactDt = dt * Math.max(0, Math.min(1, ratio));
+      ball.x = prevX + ball.vx * exactDt;
+      ball.y = 0;
+      ball.landed = true;
+      ball.landTime = simTime - dt + exactDt;
+      ball.trail.push({ x: ball.x, y: 0 });
+    }
+  }
+
+  function updatePhysics(dt) {
+    const g = Math.max(0.1, parseFloat(gravityInput.value) || 9.8);
+    const hasDrag = airDragCheckbox.checked;
+
+    const subSteps = 10;
+    const subDt = dt / subSteps;
+
+    for (let i = 0; i < subSteps; i++) {
+      if (ballA.landed && ballB.landed) break;
+      simTime += subDt;
+
+      stepBall(ballA, subDt, g, hasDrag);
+      stepBall(ballB, subDt, g, hasDrag);
+
+      // 궤적 및 0.2초 단위 섬광 잔상 기록
+      [ballA, ballB].forEach(b => {
+        if (!b.landed) {
+          if (simTime >= b.nextStrobeTime) {
+            b.strobes.push({ x: b.x, y: b.y, t: b.nextStrobeTime });
+            b.nextStrobeTime += 0.2;
+          }
+        }
+      });
+    }
+
+    // 렌더링용 궤적 포인트 추가
+    if (!ballA.landed) ballA.trail.push({ x: ballA.x, y: ballA.y });
+    if (!ballB.landed) ballB.trail.push({ x: ballB.x, y: ballB.y });
+
+    elapsedDisplay.textContent = `경과: ${simTime.toFixed(2)} s`;
+    updateTelemetry();
+
+    if (ballA.landed && ballB.landed) {
+      isRunning = false;
+      launchBtn.textContent = '다시 발사';
+    }
+  }
+
+  function loop(timestamp) {
+    if (!isRunning) {
+      draw();
+      return;
+    }
+
+    if (!lastTimestamp) lastTimestamp = timestamp;
+    const frameDt = Math.min((timestamp - lastTimestamp) / 1000, 0.05);
+    lastTimestamp = timestamp;
+
+    updatePhysics(frameDt);
+    draw();
+
+    if (isRunning) {
+      animFrameId = requestAnimationFrame(loop);
+    }
+  }
+
+  // 발사 버튼 동작
+  launchBtn.addEventListener('click', () => {
+    if (isRunning) {
+      isRunning = false;
+      isPaused = true;
+      launchBtn.textContent = '계속';
+      return;
+    }
+
+    if (isPaused) {
+      isRunning = true;
+      isPaused = false;
+      lastTimestamp = null;
+      launchBtn.textContent = '일시정지';
+      animFrameId = requestAnimationFrame(loop);
+      return;
+    }
+
+    resetSimulation(true);
+    isRunning = true;
+    launchBtn.textContent = '일시정지';
+    animFrameId = requestAnimationFrame(loop);
+  });
+
+  resetBtn.addEventListener('click', () => {
+    resetSimulation(true);
+  });
+
+  // 화면 좌표 변환 및 그리기
+  function draw() {
+    const width = canvas.getBoundingClientRect().width;
+    const height = canvas.getBoundingClientRect().height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 여백 설정
+    const marginLeft = 64;
+    const marginRight = 40;
+    const marginTop = 36;
+    const marginBottom = 42;
+
+    const plotW = width - marginLeft - marginRight;
+    const plotH = height - marginTop - marginBottom;
+
+    // 최대 높이(m) 및 최대 수평 거리(m) 동적 계산
+    const maxInitH = Math.max(getHeightA(), getHeightB(), 20);
+    const maxWorldY = Math.ceil(maxInitH / 10) * 10;
+
+    const g = Math.max(0.1, parseFloat(gravityInput.value) || 9.8);
+    const estTime = Math.sqrt((2 * maxWorldY) / g);
+    const maxVx = Math.max(getVxA(), getVxB(), 5);
+    const estMaxDist = Math.max(maxVx * estTime * 1.15, ballA.x + 10, ballB.x + 10, 40);
+    const maxWorldX = Math.ceil(estMaxDist / 10) * 10;
+
+    const toScreenX = (wx) => marginLeft + (wx / maxWorldX) * plotW;
+    const toScreenY = (wy) => marginTop + plotH - (wy / maxWorldY) * plotH;
+
+    // 1. 파란색 격자(Grid) 그리기
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.22)';
+    ctx.lineWidth = 1;
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#475569';
+
+    // 수평 격자선 (높이 m 눈금)
+    const yStep = maxWorldY <= 30 ? 5 : (maxWorldY <= 60 ? 10 : 20);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let y = 0; y <= maxWorldY; y += yStep) {
+      const sy = toScreenY(y);
+      ctx.beginPath();
+      ctx.moveTo(marginLeft, sy);
+      ctx.lineTo(marginLeft + plotW, sy);
+      ctx.stroke();
+
+      ctx.fillText(`${y}m`, marginLeft - 8, sy);
+    }
+
+    // 수직 격자선 (거리 m 눈금)
+    const xStep = maxWorldX <= 50 ? 5 : (maxWorldX <= 120 ? 10 : 20);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let x = 0; x <= maxWorldX; x += xStep) {
+      const sx = toScreenX(x);
+      ctx.beginPath();
+      ctx.moveTo(sx, marginTop);
+      ctx.lineTo(sx, marginTop + plotH);
+      ctx.stroke();
+
+      ctx.fillText(`${x}m`, sx, marginTop + plotH + 8);
+    }
+
+    // 2. 기준 축 및 지면 강조선
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, marginTop);
+    ctx.lineTo(marginLeft, marginTop + plotH);
+    ctx.lineTo(marginLeft + plotW, marginTop + plotH);
+    ctx.stroke();
+
+    // 지면 표시
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(marginLeft, marginTop + plotH, plotW, 8);
+
+    // 3. 두 공의 현재 높이를 잇는 수평 점선 (항상 표시)
+    if (isRunning || simTime > 0) {
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = '#16a34a';
+      ctx.lineWidth = 1.5;
+
+      const ay = toScreenY(ballA.y);
+      const by = toScreenY(ballB.y);
+
+      if (Math.abs(ay - by) < 1.5) {
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(ballA.x), ay);
+        ctx.lineTo(toScreenX(ballB.x), by);
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = 'rgba(37, 99, 235, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(marginLeft, ay);
+        ctx.lineTo(toScreenX(ballA.x), ay);
+        ctx.stroke();
+
+        ctx.strokeStyle = 'rgba(220, 38, 38, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(marginLeft, by);
+        ctx.lineTo(toScreenX(ballB.x), by);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 4. 궤적 선 그리기 (항상 표시)
+    function drawTrail(ball) {
+      if (ball.trail.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = ball.color;
+      ctx.lineWidth = 2.8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(ball.trail[0].x), toScreenY(ball.trail[0].y));
+      for (let i = 1; i < ball.trail.length; i++) {
+        ctx.lineTo(toScreenX(ball.trail[i].x), toScreenY(ball.trail[i].y));
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    drawTrail(ballA);
+    drawTrail(ballB);
+
+    // 5. 0.2초 간격 다중 섬광 잔상(Strobe) 그리기 (항상 표시)
+    [ballA, ballB].forEach(b => {
+      b.strobes.forEach((pt, idx) => {
+        if (idx === 0) return;
+        const sx = toScreenX(pt.x);
+        const sy = toScreenY(pt.y);
+        ctx.save();
+        ctx.fillStyle = b.color;
+        ctx.globalAlpha = 0.28;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    });
+
+    // 6. 발사 전 초기 수평 속도 벡터 화살표 미리보기
+    function drawVelocityArrow(ball) {
+      if (ball.vx <= 0) return;
+      const sx = toScreenX(ball.x);
+      const sy = toScreenY(ball.y);
+      const arrowLen = Math.min(75, 16 + ball.vx * 1.5);
+
+      ctx.save();
+      ctx.strokeStyle = ball.color;
+      ctx.fillStyle = ball.color;
+      ctx.lineWidth = 2.2;
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + arrowLen, sy);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(sx + arrowLen + 6, sy);
+      ctx.lineTo(sx + arrowLen - 3, sy - 4.5);
+      ctx.lineTo(sx + arrowLen - 3, sy + 4.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (!isRunning && simTime === 0) {
+      drawVelocityArrow(ballA);
+      drawVelocityArrow(ballB);
+    }
+
+    // 7. 공 본체 그리기
+    function drawBall(ball, label) {
+      const sx = toScreenX(ball.x);
+      const sy = toScreenY(ball.y);
+      const radius = 8 + Math.min(6, Math.sqrt(ball.mass) * 1.3);
+
+      ctx.save();
+      ctx.fillStyle = ball.color;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, sx, sy);
+      ctx.restore();
+    }
+
+    drawBall(ballB, 'B');
+    drawBall(ballA, 'A');
+  }
+
+  // 초기 실행
+  resizeCanvas();
+  resetSimulation(true);
+</script>
+</body>
+</html>
