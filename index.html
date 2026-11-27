@@ -63,24 +63,54 @@
       color: #cbd5e1;
     }
 
-    /* 헤더 내부로 이동한 범례 배지 (격자선 밖 배치) */
-    .legend-badge {
+    /* 우측 상단 공 선택 필터 버튼 그룹 */
+    .legend-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .legend-btn {
       background: rgba(255, 255, 255, 0.12);
-      border: 1px solid rgba(255, 255, 255, 0.25);
+      border: 1.5px solid rgba(255, 255, 255, 0.28);
       border-radius: 8px;
       padding: 7px 14px;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 6px;
       font-size: 0.86rem;
       font-weight: 700;
       color: #ffffff;
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
+    .legend-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    /* 단독 선택(활성) 상태 */
+    .legend-btn.active-a {
+      background: #2563eb;
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.4);
+    }
+
+    .legend-btn.active-b {
+      background: #dc2626;
+      border-color: #fca5a5;
+      box-shadow: 0 0 0 2px rgba(252, 165, 165, 0.4);
+    }
+
+    .legend-btn.active-all {
+      background: #16a34a;
+      border-color: #86efac;
+    }
+
+    /* 숨겨진 공 버튼 비활성 표시 */
+    .legend-btn.dimmed {
+      opacity: 0.45;
     }
 
     .dot {
@@ -150,10 +180,15 @@
       padding: 7px 9px;
       border-radius: 7px;
       font-size: 0.86rem;
+      transition: opacity 0.15s ease;
     }
 
     .ball-stat:last-child {
       margin-bottom: 0;
+    }
+
+    .ball-stat.hidden-stat {
+      opacity: 0.38;
     }
 
     .ball-a-stat {
@@ -394,13 +429,20 @@
   <div class="header">
     <div class="header-left">
       <h1>수평 방향 운동과 수직(연직) 방향 운동의 독립성 실험</h1>
-      <span class="header-sub">두 공의 조건을 바꾸어 발사한 뒤 낙하 시간과 궤적을 비교해 보세요</span>
+      <span class="header-sub">버튼을 눌러 공 A 또는 공 B의 움직임과 궤적만 따로 관찰할 수 있습니다</span>
     </div>
 
-    <!-- 격자 밖(상단 바)으로 이동한 공 A, 공 B 범례 -->
-    <div class="legend-badge">
-      <span class="legend-item"><i class="dot" style="background:#2563eb;"></i>공 A</span>
-      <span class="legend-item"><i class="dot" style="background:#dc2626;"></i>공 B</span>
+    <!-- 우측 상단 공 A / 공 B 단독 보기 버튼 -->
+    <div class="legend-controls">
+      <button type="button" class="legend-btn" id="btnOnlyA" title="공 A와 궤적만 보기">
+        <i class="dot" style="background:#2563eb;"></i>공 A만 보기
+      </button>
+      <button type="button" class="legend-btn" id="btnOnlyB" title="공 B와 궤적만 보기">
+        <i class="dot" style="background:#dc2626;"></i>공 B만 보기
+      </button>
+      <button type="button" class="legend-btn active-all" id="btnShowAll" title="공 A와 공 B 모두 보기">
+        모두 보기
+      </button>
     </div>
   </div>
 
@@ -412,7 +454,7 @@
         <span class="timer-badge" id="elapsedDisplay">경과: 0.00 s</span>
       </div>
 
-      <div class="ball-stat ball-a-stat">
+      <div class="ball-stat ball-a-stat" id="statBoxA">
         <div class="stat-header">
           <span class="stat-a-label">● 공 A 낙하 시간</span>
           <span class="land-time stat-a-label" id="timeA">대기 중</span>
@@ -423,7 +465,7 @@
         </div>
       </div>
 
-      <div class="ball-stat ball-b-stat">
+      <div class="ball-stat ball-b-stat" id="statBoxB">
         <div class="stat-header">
           <span class="stat-b-label">● 공 B 낙하 시간</span>
           <span class="land-time stat-b-label" id="timeB">대기 중</span>
@@ -583,6 +625,47 @@
   const airDragCheckbox = document.getElementById('airDrag');
   const launchBtn = document.getElementById('launchBtn');
   const resetBtn = document.getElementById('resetBtn');
+
+  // 표시 모드 버튼 ('all' | 'A' | 'B')
+  let viewMode = 'all';
+  const btnOnlyA = document.getElementById('btnOnlyA');
+  const btnOnlyB = document.getElementById('btnOnlyB');
+  const btnShowAll = document.getElementById('btnShowAll');
+  const statBoxA = document.getElementById('statBoxA');
+  const statBoxB = document.getElementById('statBoxB');
+
+  function setViewMode(mode) {
+    // 이미 같은 단독 모드를 다시 누르면 전체 보기로 복귀
+    if (viewMode === mode && mode !== 'all') {
+      viewMode = 'all';
+    } else {
+      viewMode = mode;
+    }
+
+    btnOnlyA.classList.remove('active-a', 'dimmed');
+    btnOnlyB.classList.remove('active-b', 'dimmed');
+    btnShowAll.classList.remove('active-all');
+    statBoxA.classList.remove('hidden-stat');
+    statBoxB.classList.remove('hidden-stat');
+
+    if (viewMode === 'A') {
+      btnOnlyA.classList.add('active-a');
+      btnOnlyB.classList.add('dimmed');
+      statBoxB.classList.add('hidden-stat');
+    } else if (viewMode === 'B') {
+      btnOnlyB.classList.add('active-b');
+      btnOnlyA.classList.add('dimmed');
+      statBoxA.classList.add('hidden-stat');
+    } else {
+      btnShowAll.classList.add('active-all');
+    }
+
+    draw();
+  }
+
+  btnOnlyA.addEventListener('click', () => setViewMode('A'));
+  btnOnlyB.addEventListener('click', () => setViewMode('B'));
+  btnShowAll.addEventListener('click', () => setViewMode('all'));
 
   // 결과 표시 요소
   const elapsedDisplay = document.getElementById('elapsedDisplay');
@@ -818,6 +901,9 @@
 
     ctx.clearRect(0, 0, width, height);
 
+    const showA = (viewMode === 'all' || viewMode === 'A');
+    const showB = (viewMode === 'all' || viewMode === 'B');
+
     // 여백 설정
     const marginLeft = 64;
     const marginRight = 40;
@@ -887,38 +973,41 @@
     ctx.fillStyle = '#e2e8f0';
     ctx.fillRect(marginLeft, marginTop + plotH, plotW, 8);
 
-    // 3. 두 공의 현재 높이를 잇는 수평 점선 (항상 표시)
+    // 3. 수평 높이 점선 표시 (보이는 공에 맞춰 동작)
     if (isRunning || simTime > 0) {
       ctx.save();
       ctx.setLineDash([5, 5]);
-      ctx.strokeStyle = '#16a34a';
       ctx.lineWidth = 1.5;
 
       const ay = toScreenY(ballA.y);
       const by = toScreenY(ballB.y);
 
-      if (Math.abs(ay - by) < 1.5) {
+      if (showA && showB && Math.abs(ay - by) < 1.5) {
+        ctx.strokeStyle = '#16a34a';
         ctx.beginPath();
         ctx.moveTo(toScreenX(ballA.x), ay);
         ctx.lineTo(toScreenX(ballB.x), by);
         ctx.stroke();
       } else {
-        ctx.strokeStyle = 'rgba(37, 99, 235, 0.45)';
-        ctx.beginPath();
-        ctx.moveTo(marginLeft, ay);
-        ctx.lineTo(toScreenX(ballA.x), ay);
-        ctx.stroke();
-
-        ctx.strokeStyle = 'rgba(220, 38, 38, 0.45)';
-        ctx.beginPath();
-        ctx.moveTo(marginLeft, by);
-        ctx.lineTo(toScreenX(ballB.x), by);
-        ctx.stroke();
+        if (showA) {
+          ctx.strokeStyle = 'rgba(37, 99, 235, 0.45)';
+          ctx.beginPath();
+          ctx.moveTo(marginLeft, ay);
+          ctx.lineTo(toScreenX(ballA.x), ay);
+          ctx.stroke();
+        }
+        if (showB) {
+          ctx.strokeStyle = 'rgba(220, 38, 38, 0.45)';
+          ctx.beginPath();
+          ctx.moveTo(marginLeft, by);
+          ctx.lineTo(toScreenX(ballB.x), by);
+          ctx.stroke();
+        }
       }
       ctx.restore();
     }
 
-    // 4. 궤적 선 그리기 (항상 표시)
+    // 4. 궤적 선 그리기
     function drawTrail(ball) {
       if (ball.trail.length < 2) return;
       ctx.save();
@@ -935,11 +1024,15 @@
       ctx.restore();
     }
 
-    drawTrail(ballA);
-    drawTrail(ballB);
+    if (showA) drawTrail(ballA);
+    if (showB) drawTrail(ballB);
 
-    // 5. 0.2초 간격 다중 섬광 잔상(Strobe) 그리기 (항상 표시)
-    [ballA, ballB].forEach(b => {
+    // 5. 0.2초 간격 다중 섬광 잔상(Strobe) 그리기
+    const visibleBalls = [];
+    if (showA) visibleBalls.push(ballA);
+    if (showB) visibleBalls.push(ballB);
+
+    visibleBalls.forEach(b => {
       b.strobes.forEach((pt, idx) => {
         if (idx === 0) return;
         const sx = toScreenX(pt.x);
@@ -981,8 +1074,8 @@
     }
 
     if (!isRunning && simTime === 0) {
-      drawVelocityArrow(ballA);
-      drawVelocityArrow(ballB);
+      if (showA) drawVelocityArrow(ballA);
+      if (showB) drawVelocityArrow(ballB);
     }
 
     // 7. 공 본체 그리기
@@ -1008,8 +1101,8 @@
       ctx.restore();
     }
 
-    drawBall(ballB, 'B');
-    drawBall(ballA, 'A');
+    if (showB) drawBall(ballB, 'B');
+    if (showA) drawBall(ballA, 'A');
   }
 
   // 초기 실행
